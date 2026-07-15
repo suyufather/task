@@ -1,0 +1,305 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+    <mapper namespace="egovframework.ain.pjt.service.impl.ApiMapper">
+    
+    <select id="selectApiLstTotCnt" resultType="int">
+        SELECT COUNT(1) AS CNT
+          FROM TB_BOARDINFO
+         WHERE 1 = 1
+    </select>
+
+    <select id="selectApiLst" resultType="egovMap">
+        SELECT T.* FROM (
+            SELECT ROW_NUMBER() OVER(ORDER BY BBS_NO DESC) RNUM
+                 , BBS_NO
+                 , BBS_GUBN
+                 , BBS_CODE
+                 , BBS_TITLE
+                 , BBS_CNT
+                 , CONVERT(CHAR(10), BBS_WRITE_DT, 23) AS BBS_WRITE_DT
+              FROM TB_BOARDINFO
+             WHERE 1=1
+        ) T
+        WHERE 1=1 
+          AND RNUM BETWEEN #{startRow}+1 AND #{endRow}
+        ORDER BY BBS_NO DESC 
+    </select>
+
+	<insert id="apiInsert">
+       INSERT INTO AUCT_CATTLEDETAILPRICEDETAIL(
+			 startYmd
+			,endYmd	
+			,abattCode	
+			,abattNm	
+			,gradeCd	
+			,gradeType	
+			,gradeNm	
+			,bmsNo	
+			,judgeBreedCd	
+			,judgeBreedNm	
+			,judgeSexCd	
+			,judgeSexNm	
+			,auctCnt	
+			,weight	
+			,auctAmt	
+			,sumWeight	
+			,sumAuctAmt	
+			,minAuctAmt	
+			,maxAuctAmt	
+			,defectIncludeYn	
+			,resultCode	
+			,resultMsg
+       )
+       VALUES (
+       		#{startYmd}
+       		,#{endYmd}
+       		,#{abattCode}
+       		,#{abattNm}
+       		,#{gradeCd}
+       		,#{gradeType}
+       		,#{gradeNm}
+       		,#{bmsNo}
+       		,#{judgeBreedCd}
+       		,#{judgeBreedNm}
+       		,#{judgeSexCd}
+       		,#{judgeSexNm}
+       		,#{auctCnt}
+       		,#{weight}
+       		,#{auctAmt}
+       		,#{sumWeight}
+       		,#{sumAuctAmt}
+       		,#{minAuctAmt}
+       		,#{maxAuctAmt}
+       		,#{defectIncludeYn}
+       		,#{resultCode}
+       		,#{resultMsg}
+
+       )
+    </insert>
+    
+    <select id="selectEgovSampleList" resultType="egovMap">
+      /* selectEgovSampleList */
+      SELECT 
+            startYmd
+            , endYmd
+            , auctAmt
+            , auctCnt
+            , bmsNo
+            , defectIncludeYn
+            , gradeCd
+            , gradeNm
+            , gradeType
+            , judgeBreedCd
+            , judgeBreedNm
+            , judgeSexCd
+            , judgeSexNm
+            , maxAuctamt
+            , minAuctAmt
+            , sumAuctAmt
+            , sumWeight
+            , weight
+        FROM AUCT_CATTLEDETAILPRICEDETAIL
+	</select>
+	<insert id="insertCow">
+<!-- 		INSERT INTO MC_COW -->
+<!-- 		           ( -->
+<!-- 			           YYMMDD -->
+<!-- 			           ,MarketCode -->
+<!-- 			           ,H01 한우 수량 -->
+<!-- 			           ,H04	한우 가격 -->
+<!-- 			           ,H05 전일 한우 가격 -->
+<!-- 			           ,X01 육우 수량    -->
+<!-- 			           ,X04 육우 가격    -->
+<!-- 			           ,X05 전일 욱우 가격 -->
+<!-- 					   , H02 -->
+<!-- 					   , H03 -->
+<!-- 					   , X02 -->
+<!-- 					   , X03 -->
+<!-- 		           ) -->
+<!-- 		     VALUES -->
+<!-- 		           ( -->
+<!-- 			           	#{auctDate} -->
+<!-- 			           ,#{marketCode} -->
+<!-- 					   , ISNULL(REPLACE(#{beefCnt, jdbcType=FLOAT},',',''), 0) -->
+<!-- 		               , ISNULL(REPLACE(#{beefAmt, jdbcType=FLOAT},',',''), 0) -->
+<!-- 		               , ISNULL(REPLACE(#{h05, jdbcType=FLOAT},',',''), 0) -->
+<!-- 		               , ISNULL(REPLACE(#{cowCnt, jdbcType=FLOAT},',',''), 0) -->
+<!-- 		               , ISNULL(REPLACE(#{cowAmt, jdbcType=FLOAT},',',''), 0) -->
+<!-- 		               , ISNULL(REPLACE(#{x05, jdbcType=FLOAT},',',''), 0) -->
+<!-- 		               , 0 -->
+<!-- 		               , 0 -->
+<!-- 		               , 0 -->
+<!-- 		               , 0 -->
+<!-- 		           ) -->
+MERGE INTO MC_COW AS target
+USING (
+    SELECT
+        #{auctDate}      AS YYMMDD,
+        #{marketCode}    AS MarketCode,
+        ISNULL(REPLACE(#{beefCnt, jdbcType=FLOAT},',',''), 0) AS H01,
+        ISNULL(REPLACE(#{beefAmt, jdbcType=FLOAT},',',''), 0) AS H04,
+        ISNULL(REPLACE(#{h05, jdbcType=FLOAT},',',''), 0)     AS H05,
+        ISNULL(REPLACE(#{cowCnt, jdbcType=FLOAT},',',''), 0)  AS X01,
+        ISNULL(REPLACE(#{cowAmt, jdbcType=FLOAT},',',''), 0)  AS X04,
+        ISNULL(REPLACE(#{x05, jdbcType=FLOAT},',',''), 0)     AS X05,
+        0 AS H02,
+        0 AS H03,
+        0 AS X02,
+        0 AS X03
+) AS source
+ON (target.YYMMDD = source.YYMMDD AND target.MarketCode = source.MarketCode)
+WHEN MATCHED THEN
+    UPDATE SET
+<!--         H01 = source.H01, -->
+<!--         H04 = source.H04, -->
+<!--         H05 = source.H05, -->
+        X01 = source.X01,
+        X04 = source.X04
+<!--         X05 = source.X05, -->
+<!--         H02 = source.H02, -->
+<!--         H03 = source.H03, -->
+<!--         X02 = source.X02, -->
+<!--         X03 = source.X03 -->
+WHEN NOT MATCHED THEN
+    INSERT (
+        YYMMDD, MarketCode,
+        H01, H04, H05, X01, X04, X05,
+        H02, H03, X02, X03
+    )
+    VALUES (
+        source.YYMMDD, source.MarketCode,
+        source.H01, source.H04, source.H05, source.X01, source.X04, source.X05,
+        source.H02, source.H03, source.X02, source.X03
+    );
+    </insert>
+    
+    <update id="updateBeforeCow">
+    	WITH A AS(
+		SELECT MARKETCODE
+		     , CONVERT(VARCHAR, H04) AS H05
+		     , CONVERT(VARCHAR, X04) AS X05
+		     , YYMMDD AS PREDATE
+		  FROM ANIINFONET.dbo.MC_COW
+		 WHERE YYMMDD IN (SELECT MAX(YYMMDD) FROM ANIINFONET.dbo.MC_COW WHERE YYMMDD  <![CDATA[ < ]]> #{todayStr})
+		)
+	    UPDATE MC
+	    SET  MC.H05 = A.H05
+			,MC.X05 = A.X05
+		FROM ANIINFONET.dbo.MC_COW MC
+		JOIN A
+		ON MC.MarketCode = A.MarketCode
+		WHERE MC.YYMMDD = #{todayStr}
+    </update>
+    
+    <insert id="insertPig">
+		INSERT INTO MC_PIG
+		           (
+			            YYMMDD
+			           ,MarketCode
+			           ,B01 <!-- 돼지 수량 -->
+			           ,B04	<!-- 돼지 가격 -->
+			           ,B05 <!-- 돼지 전일 가격 -->
+			           ,M01    
+			           ,M04    
+			           ,M05 
+					   , B02
+					   , B03
+					   , M02
+					   , M03
+		           )
+		     VALUES
+		           (
+			           	#{auctDate}
+			           ,#{marketCode}
+					   , ISNULL(REPLACE(#{pigCnt, jdbcType=FLOAT},',',''), 0)
+		               , ISNULL(REPLACE(#{pigAmt, jdbcType=FLOAT},',',''), 0)
+		               , 0
+		               , 0
+		               , 0
+		               , 0
+		               , 0
+		               , 0
+		               , 0
+		               , 0
+		           )
+    </insert>
+    
+    <update id="updateBeforePig">
+    	WITH A AS(
+		SELECT MARKETCODE
+		     , CONVERT(VARCHAR, B04) AS B05
+		     , YYMMDD AS PREDATE
+		  FROM ANIINFONET.dbo.MC_PIG
+		 WHERE YYMMDD = (SELECT MAX(YYMMDD) FROM ANIINFONET.dbo.MC_PIG WHERE YYMMDD  <![CDATA[ < ]]> #{todayStr})
+		)
+	    UPDATE MC
+	    SET  MC.B05 = A.B05
+		FROM ANIINFONET.dbo.MC_PIG MC
+		JOIN A
+		ON MC.MarketCode = A.MarketCode
+		WHERE MC.YYMMDD = #{todayStr}
+    </update>
+    
+    <insert id="insertEgg">
+		INSERT MC_PAN 
+			( YYMMDD 
+			, MARKETCODE 
+			, PN01 
+			, PN02 
+			, PN03 
+			, PN04 
+			, PN05 
+			) 
+			VALUES 
+			( #{auctDate} 
+			, #{marketCode} 
+			, ISNULL(REPLACE(#{verybig},',',''), 0) 
+			, ISNULL(REPLACE(#{special},',',''), 0) 
+			, ISNULL(REPLACE(#{big},',',''), 0) 
+			, ISNULL(REPLACE(#{medium},',',''), 0) 
+			, ISNULL(REPLACE(#{small},',',''), 0) 
+			) 
+    </insert>
+    <insert id="insertChick">
+		INSERT MC_GG 
+			(
+			  YYMMDD 
+			, MARKETCODE 
+			, GG01 
+			, GG02 
+			, GG03 
+			) 
+		VALUES 
+			(
+			  #{auctDate}
+			, #{marketCode} 
+			, ISNULL(REPLACE(#{big},',',''), 0) 
+			, ISNULL(REPLACE(#{medium},',',''), 0) 
+			, ISNULL(REPLACE(#{small},',',''), 0) 
+			 ) 
+    </insert>
+    
+    <delete id="deleteCow">
+	    DELETE 
+		FROM ANIINFONET.dbo.MC_COW
+		WHERE YYMMDD = #{todayStr}
+    </delete>
+    <delete id="deletePig">
+	    DELETE 
+		FROM ANIINFONET.dbo.MC_PIG
+		WHERE YYMMDD = #{todayStr}
+    </delete>
+    <delete id="deleteEgg">
+	    DELETE 
+		FROM ANIINFONET.dbo.MC_PAN
+		WHERE YYMMDD = #{todayStr}
+    </delete>
+    <delete id="deleteChick">
+	    DELETE 
+		FROM ANIINFONET.dbo.MC_GG
+		WHERE YYMMDD = #{todayStr}
+    </delete>   
+
+    
+</mapper>
