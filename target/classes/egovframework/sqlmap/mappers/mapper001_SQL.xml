@@ -1,0 +1,150 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<!--
+    이 파일은 실행 가능한 SELECT 쿼리가 없는 "공통 SQL 조각 전용" 매퍼입니다.
+    <sql id="taskTreeCte"> 안의 WITH RECURSIVE 구문을
+    다른 Mapper XML에서 <include refid="taskTreeCte"/> 로 가져다 씁니다.
+
+    사용 예시 (다른 매퍼 XML):
+
+    <select id="selectTaskEmpStatus" resultType="...">
+        <include refid="mapper001.taskTreeCte"/>
+        SELECT PJT_NM, TASK_NO, TASK_JOB, NAVI_PATH, CODE_NM,
+               BACKEND, BACKEND_STATUS_NM, BACKEND_STD_DT, BACKEND_END_DT,
+               FRONTEND, RONTEND_STATUS_NM, FRONTEND_STD_DT, FRONTEND_END_DT
+          FROM TASK_EMP_STATUS
+         WHERE (BACKEND_STATUS != '999999' OR FRONTEND_STATUS != '999999')
+        <if test="pjtNo != null">
+           AND TASK_PJT_NO = #{pjtNo}
+        </if>
+         ORDER BY PJT_NM, SORT_PATH
+    </select>
+
+    namespace가 "common"이 아니라면 include refid를
+    "실제네임스페이스.taskTreeCte" 형태로 맞춰주세요.
+    같은 XML 안에서 쓸 경우엔 refid="taskTreeCte" 만으로 충분합니다.
+-->
+<mapper namespace="mapper001">
+
+    <sql id="taskTreeCte">
+        WITH RECURSIVE TASK_TREE_ALL AS (
+        SELECT TASK_PJT_NO
+        , TASK_NO
+        , TASK_JOB
+        , TASK_PRE_NO
+        , TASK_LEVEL
+        , TASK_STATUS
+        , CAST(TASK_JOB AS CHAR(1000)) AS NAVI_PATH
+        , CAST(LPAD(TASK_SORT, 3, '0') AS CHAR(1000)) AS SORT_PATH
+        FROM tb_project_task
+        WHERE TASK_LEVEL = 1
+        <!-- 필요 시 여기 base case에 프로젝트 번호 등 파라미터 조건을 추가하세요 -->
+        <if test="pjtNo != null">
+            AND TASK_PJT_NO = #{pjtNo}
+        </if>
+        UNION ALL
+        SELECT T.TASK_PJT_NO
+        , T.TASK_NO
+        , T.TASK_JOB
+        , T.TASK_PRE_NO
+        , T.TASK_LEVEL
+        , T.TASK_STATUS
+        , CAST(CONCAT(TREE.NAVI_PATH, '>', T.TASK_JOB) AS CHAR(1000)) AS NAVI_PATH
+        , CAST(CONCAT(TREE.SORT_PATH, LPAD(T.TASK_SORT, 3, '0')) AS CHAR(1000)) AS SORT_PATH
+        FROM TB_PROJECT_TASK T
+        JOIN TASK_TREE_ALL TREE
+        ON T.TASK_PRE_NO = TREE.TASK_NO
+        AND T.TASK_PJT_NO = TREE.TASK_PJT_NO
+        WHERE T.TASK_LEVEL > 1
+        )
+        , TASK_TREE_LAST AS ( <!--작업할 프로젝트 목록 (최말단 작업만)-->
+        SELECT PI.PJT_NM
+        , TTA.TASK_PJT_NO
+        , TTA.TASK_NO
+        , TTA.TASK_JOB
+        , TTA.TASK_PRE_NO
+        , TTA.TASK_LEVEL
+        , TTA.NAVI_PATH
+        , TTA.SORT_PATH
+        , TTA.TASK_STATUS
+        FROM TASK_TREE_ALL TTA
+        INNER JOIN tb_project_info PI ON PI.PJT_NO = TTA.TASK_PJT_NO
+        LEFT JOIN TB_PROJECT_TASK PT
+        ON TTA.TASK_PJT_NO = PT.TASK_PJT_NO
+        AND TTA.TASK_NO = PT.TASK_PRE_NO
+        WHERE 1=1
+        AND PT.TASK_NO IS NULL
+        )
+        , EMP_TASK AS ( <!--개발자별 프로젝트별 담당 작업-->
+        SELECT PJT_NM
+        , TTL.TASK_PJT_NO
+        , TTL.TASK_NO
+        , ET.EMP_NO
+        , EI.EMP_ENM
+        , EI.EMP_DEPT_CD
+        , ET.EMP_TASK_STATUS
+        , ET.EMP_TASK_STD_DT
+        , ET.EMP_TASK_END_DT
+        , ET.EMP_TASK_RANK
+        FROM TASK_TREE_LAST TTL
+        INNER JOIN tb_employee_task ET
+        ON TTL.TASK_NO = ET.TASK_NO
+        AND TTL.TASK_PJT_NO = ET.TASK_PJT_NO
+        INNER JOIN tb_employee_info EI ON ET.EMP_NO = EI.EMP_NO
+        )
+        , TASK_EMP AS ( <!--프로젝트별 작업별 담당자 (BE/FE 피벗)-->
+        SELECT PJT_NM
+        , TASK_NO
+        , TASK_PJT_NO
+        , MAX(CASE WHEN EMP_DEPT_CD = 'BE' THEN EMP_ENM END) AS BACKEND
+        , MAX(CASE WHEN EMP_DEPT_CD = 'BE' THEN EMP_TASK_STATUS END) AS BACKEND_STATUS
+        , MAX(CASE WHEN EMP_DEPT_CD = 'BE' THEN EMP_TASK_STD_DT END) AS BACKEND_STD_DT
+        , MAX(CASE WHEN EMP_DEPT_CD = 'BE' THEN EMP_TASK_END_DT END) AS BACKEND_END_DT
+        , MAX(CASE WHEN EMP_DEPT_CD = 'FE' THEN EMP_ENM END) AS FRONTEND
+        , MAX(CASE WHEN EMP_DEPT_CD = 'FE' THEN EMP_TASK_STATUS END) AS FRONTEND_STATUS
+        , MAX(CASE WHEN EMP_DEPT_CD = 'FE' THEN EMP_TASK_STD_DT END) AS FRONTEND_STD_DT
+        , MAX(CASE WHEN EMP_DEPT_CD = 'FE' THEN EMP_TASK_END_DT END) AS FRONTEND_END_DT
+        FROM EMP_TASK
+        WHERE 1=1
+        GROUP BY TASK_PJT_NO, TASK_NO
+        )
+        , TASK_EMP_STATUS AS (
+        SELECT TTL.PJT_NM             <!--프로젝트명-->
+        , TTL.TASK_NO            <!--작업일련번호-->
+        , TTL.TASK_JOB           <!--작업명-->
+        , TTL.TASK_PRE_NO
+        , TTL.TASK_LEVEL
+        , TTL.NAVI_PATH          <!--경로-->
+        , TTL.SORT_PATH
+        , TTL.TASK_STATUS        <!--PM 작업상태-->
+        , CI01.CODE_NM
+        , TE.BACKEND             <!--백엔드 담당자-->
+        , TE.BACKEND_STATUS      <!--담당자 진행상태-->
+        , CI02.CODE_NM AS BACKEND_STATUS_NM
+        , TE.BACKEND_STD_DT      <!--개발시작일-->
+        , TE.BACKEND_END_DT      <!--개발종료일-->
+        , TE.FRONTEND            <!--프론트 담당자-->
+        , TE.FRONTEND_STATUS     <!--담당자 진행상태-->
+        , CI03.CODE_NM AS FRONTEND_STATUS_NM
+        , TE.FRONTEND_STD_DT     <!--개발시작일-->
+        , TE.FRONTEND_END_DT     <!--개발종료일-->
+        FROM TASK_TREE_LAST TTL
+        INNER JOIN TASK_EMP TE
+        ON TTL.TASK_PJT_NO = TE.TASK_PJT_NO
+        AND TTL.TASK_NO = TE.TASK_NO
+        LEFT OUTER JOIN TB_CODE_INFO CI01
+        ON CI01.CODE_PRE_NO = 1
+        AND TTL.TASK_STATUS = CI01.CODE_VALUE
+        LEFT OUTER JOIN TB_CODE_INFO CI02
+        ON CI02.CODE_PRE_NO = 5
+        AND TE.BACKEND_STATUS = CI02.CODE_VALUE
+        LEFT OUTER JOIN TB_CODE_INFO CI03
+        ON CI03.CODE_PRE_NO = 5
+        AND TE.FRONTEND_STATUS = CI03.CODE_VALUE
+        )
+    </sql>
+
+</mapper>
