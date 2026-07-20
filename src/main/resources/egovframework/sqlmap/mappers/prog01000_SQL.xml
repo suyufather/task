@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="pjt.PROG01000.service.impl.PROG01000Mapper">
+
+	<sql id="whereSelectPROG01000Lst">
+	</sql>
+
+    <select id="selectPROG01000LstCnt" resultType="int">
+        SELECT COUNT(1) AS CNT
+		  FROM TASK_EMP_STATUS
+		 WHERE BACKEND_STATUS!='999999' OR FRONTEND_STATUS!='999999'
+    </select>
+
+	<!--작업별 담당자와 일정 -->
+    <select id="selectPROG01000Lst" resultType="egovMap">
+		/* selectPROG00100Lst */
+		<include refid="mapper001.taskTreeCte"/>
+		SELECT PJT_NM
+		     , TASK_NO, TASK_JOB, NAVI_PATH, CODE_NM, BACKEND, BACKEND_STATUS_NM
+		     , BACKEND_STD_DT, BACKEND_END_DT, FRONTEND, RONTEND_STATUS_NM, FRONTEND_STD_DT, FRONTEND_END_DT
+		FROM TASK_EMP_STATUS
+		WHERE BACKEND_STATUS!='999999' OR FRONTEND_STATUS!='999999'
+		ORDER BY PJT_NM, SORT_PATH
+		LIMIT #{limit}
+		OFFSET #{offset}
+    </select>
+</mapper>

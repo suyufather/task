@@ -1,2 +1,2 @@
 <%@ page language="java" contentType="text/html; charset=utf-8" pageEncoding="utf-8"%>
-<jsp:forward page="/viewPROG00100Lst.do"/>
+<jsp:forward page="/viewPROG01000Lst.do"/>
